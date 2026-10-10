@@ -273,7 +273,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 //    date:    texto libre (opcional)
 //    message: nota bajo el contenido; en type:'text' es el contenido principal (opcional)
 //
-//  El PRIMERO es el foco central (más grande), apuntando al micro: lo primero que él ve.
+//  ORDEN (antihorario visto desde arriba): fila delantera de izquierda a derecha, luego fila
+//  trasera de derecha a izquierda (izquierda/derecha vistas desde el público). El del medio de
+//  la delantera es el foco grande que apunta al micro. Con 12: 1-7 delante (el 4 es el central),
+//  8-12 detrás, y el 12 es el de atrás a la izquierda.
 //  Los assets van en una carpeta  assets/  junto a este index.html.
 //  Vídeo en .mp4 (H.264/AAC) y audio en .mp3. Un 'audio' va genial para una nota de voz de ella.
 //  Máximo 20 recuerdos (por los charcos de luz del suelo).
@@ -283,8 +286,8 @@ const MEMORIES = [
   { title: '⁠I miss our selfies na may mga filter.', type: 'image', src: 'assets/pic1.JPG', date: '', message: 'Isa to sa mga bonding natin dati. Pero mas bet ko yung today kasi lagi na kitang kasama at lahat ng bonding nagagawa na din natin 🙂' },
   { title: 'You were always the clingy and the loving one. ', type: 'image', src: 'assets/pic8.JPG', date: '', message: 'Dahil sayo, lumalalim yung paraan ko ng pagmamahal dahil sa pinapakita at pinaparamdam mo sakin. I love you too labu.' },
   { title: 'Lagi mo akong pinagsisilbihan, minamahal. ', type: 'image', src: 'assets/pic3.JPG', date: '', message: 'Lagi mo kong inaalala at inaalagaan.' },
-  { title: 'Hanggang sa kinasal tayo~~', type: 'image', src: 'assets/pic5.JPG', date: '', message: 'Salamat sa respeto, sa pagmamahal, sa paghihitay sakin.' },
-  { title: 'Mula noon hanggang ngayon, hindi ka nagbago.', type: 'image', src: 'assets/pic2.JPG', date: '', message: 'Siguro likas n mabuti ang puso mo. Napakapalad ko sayo. Sobra. Ang lahat ng ginagawa mo, laging may pagmamahal. Kahit minsan nahhirapan ka din, nalulungkot o napapagod, palagi ka paring nagsusumikap.' },
+  { title: 'Hanggang sa kinasal tayo~~', type: 'image', src: 'assets/pic5.JPG', date: '', message: 'Salamat sa respeto, sa pagmamahal, sa paghihintay sakin.' },
+  { title: 'Mula noon hanggang ngayon, hindi ka nagbago.', type: 'image', src: 'assets/pic2.JPG', date: '', message: ' Siguro likas na mabuti ang puso mo. Napakapalad ko sayo. Sobra. Ang lahat ng ginagawa mo, laging may pagmamahal. Kahit minsan nahihirapan ka din, nalulungkot o napapagod, palagi ka paring nagsusumikap.' },
   { title: 'Nagbago ang buhay ko mula nang naging magasawa tayo.', type: 'image', src: 'assets/pic12.JPG', date: '', message: 'Nagkaron ako ng kakampi, karamay, katuwang, kasama. Gusto kong maging tulad mo. Gusto ko na mapagsilbihan ka din, mahalin at alagaan kadin. Hindi bilang kompitisyon, kundi bilang taong nagmamahal din sayo. Gusto kong maramdaman mo ung pagmamahal na binibigay mo din sakin.' },
   { title: 'Lagi mong sinasabi na kailangan ko talaga ng lalake sa buhay haha. ', type: 'image', src: 'assets/pic4.JPG', date: '', message: 'Totoo naman at salamat at ikaw yun. Andami mong alam at kayang gawin sa buhay. At patuloy kang natututo. Naeexcite ako na maging ama ka. Naway balang araw… Salamat sa maraming bagay labu.' },
   { title: 'Nagpapasalamat ako sa Panginoon dahil ikaw ang naging asawa ko. ', type: 'image', src: 'assets/pic11.JPG', date: '', message: 'Tunay na mabuti Siya sa buhay ko. Sa mga oras na palayo na ko sa Kanya, ikaw ang ginagamit Nya para muli akong maniwala at magtiwala. Pasensya ka na sakin minsan Labu. Pero naway sa mga susunod na araw, magpalakasang muli tayo sa Panginoon. Babawi ako sayo. Magiging malakas din ako para sayo.' },
@@ -300,7 +303,7 @@ const FINALE = { title: 'Encore', type: 'image', src: '', date: '', message: 'He
 //  AJUSTES
 // ============================================================
 const CONFIG = {
-  name: 'Niko',          // <- su nombre o apodo
+  name: 'Nick',          // <- su nombre o apodo
 
   // Hasta esta hora él ve una cuenta atrás. Ej: '2026-11-20T00:00:00+01:00'. null = sin cuenta atrás.
   unlockAt: null,
@@ -347,7 +350,9 @@ try {
     if (Number.isInteger(i) && i >= 0 && i < MEMORIES.length) visited.add(i);
 } catch (e) {}
 const saveVisited = () => store.set(KEY_VISITED, JSON.stringify([...visited]));
-if (params.has('finale')) { for (let i = 1; i < MEMORIES.length; i++) visited.add(i); saveVisited(); }
+// índice del foco central (el del medio de la fila delantera)
+const CENTER_IDX = (() => { const o = MEMORIES.length - 1; return Math.min(o, 2 * Math.round(o / 4)) / 2; })();
+if (params.has('finale')) { for (let i = 0; i < MEMORIES.length; i++) if (i !== CENTER_IDX) visited.add(i); saveVisited(); }
 document.title = fill(CONFIG.pageTitle);
 
 // --- Estado ---
@@ -806,20 +811,22 @@ function makeBeamMat() {
 function fixtureSlots(n) {
   const others = n - 1;
   const nf = Math.min(others, 2 * Math.round(others / 4)), nb = others - nf;
-  const slots = [{ truss: FRONT, x: 0 }];
   const sp = 34 / (Math.ceil(nf / 2) + 0.3);
-  for (let j = 0; j < nf; j++) slots.push({ truss: FRONT, x: (j % 2 ? -1 : 1) * (Math.floor(j / 2) + 1) * sp });
-  for (let j = 0; j < nb; j++) slots.push({ truss: BACK, x: -33 + 66 * (j + 0.5) / nb });
-  return slots;
+  const front = [{ truss: FRONT, x: 0, center: true }];
+  for (let j = 0; j < nf; j++) front.push({ truss: FRONT, x: (j % 2 ? -1 : 1) * (Math.floor(j / 2) + 1) * sp });
+  front.sort((a, b) => a.x - b.x);          // delante: izquierda -> derecha
+  const back = [];
+  for (let j = 0; j < nb; j++) back.push({ truss: BACK, x: 33 - 66 * (j + 0.5) / nb });    // detrás: derecha -> izquierda
+  return [...front, ...back];
 }
 const SLOTS = fixtureSlots(MEMORIES.length);
 
 function buildMemoryLight(i) {
   const slot = SLOTS[i];
-  const size = i === 0 ? 1.4 : 1;
+  const size = slot.center ? 1.4 : 1;
   const seen = visited.has(i);
   const H = V(slot.x, slot.truss.y - 0.9, slot.truss.z);
-  const T0 = i === 0 ? V(0, 0, 7)
+  const T0 = slot.center ? V(0, 0, 7)
            : slot.truss === FRONT ? V(slot.x * 0.5, 0, 4) : V(slot.x * 1.05, 0, -6);
   const housingPos = H.clone().add(V(0, -2.3 * size, 0));
   const dir = T0.clone().sub(housingPos).normalize();
@@ -1235,7 +1242,7 @@ function focusStar(i) {
   returnTarget = controls.target.clone();
   clearViewLimits();
   focusedIndex = i;
-  const dist = isFinal ? 14 : i === 0 ? 13 : 11;
+  const dist = isFinal ? 14 : i === CENTER_IDX ? 13 : 11;
   const dir = camera.position.clone().sub(P).normalize();
   const label = isFinal ? CONFIG.finaleLabel : CONFIG.trackLabel + ' ' + (i + 1);
   flyTo(P.clone().add(dir.multiplyScalar(dist)), P, () => {
